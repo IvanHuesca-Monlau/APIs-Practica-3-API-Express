@@ -6,7 +6,6 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "concurrently \"astro dev\" \"cd api && npm run api:dev\"",
     "frontend:dev": "astro dev",
     "frontend:build": "astro build",
     "frontend:preview": "astro preview",
