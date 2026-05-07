@@ -9,7 +9,7 @@ app.use(express.json());
 const usersRouter = require('./routes/users');
 
 // Use routers
-app.use('/api/users', usersRouter);
+app.use(usersRouter);
 
 // Server listening
 app.listen(apiPort, () => {
