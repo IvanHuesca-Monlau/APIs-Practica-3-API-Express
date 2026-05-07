@@ -1,9 +1,289 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import Layout from "../layouts/Layout.astro";
 import "../assets/styles/global.css";
+import CreateUser from "../components/CreateUser.astro";
+import EditUser from "../components/EditUser.astro";
+import SearchUser from "../components/SearchUser.astro";
+import AllUsers from "../components/AllUsers.astro";
 ---
 
 <Layout>
-	<Welcome />
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <div class="max-w-6xl mx-auto">
+      <!-- Header -->
+      <div class="mb-8">
+        <h1 class="text-4xl font-bold text-slate-800 mb-2">
+          Gestor de usuarios
+        </h1>
+      </div>
+
+      <!-- User creation and editing forms -->
+      <div class="grid grid-cols-2 gap-8 my-5">
+        <CreateUser />
+        <EditUser />
+      </div>
+
+      <!-- Search user -->
+      <div class="my-5">
+        <SearchUser />
+      </div>
+
+      <!-- All users list -->
+      <div class="my-5">
+        <AllUsers />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    declare global {
+      interface Window {
+        cargarUsuarios: () => Promise<void>;
+        eliminarUsuario: (id: number) => Promise<void>;
+        cargarDatosParaEditar: () => Promise<void>;
+        cargarEnFormularioEditar: (
+          id: number,
+          first_name: string,
+          last_name: string,
+          username: string,
+          email: string,
+        ) => void;
+        buscarPorId: () => void;
+      }
+    }
+
+    const API_URL = "http://localhost:3000/api/users";
+    let editandoId: number | null = null;
+
+    window.cargarUsuarios = async function () {
+      const listEl = document.getElementById("listaUsuarios");
+      if (listEl)
+        listEl.innerHTML =
+          '<div class="text-center py-8 text-slate-500">Cargando usuarios...</div>';
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(API_URL, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("Error en la respuesta");
+
+        const data = await response.json();
+        const usuarios = data.users || [];
+
+        const totalEl = document.getElementById("totalUsuarios");
+        if (totalEl) totalEl.textContent = usuarios.length.toString();
+
+        let html = "";
+        if (usuarios.length === 0) {
+          html =
+            '<div class="text-center py-8 text-slate-500">No hay usuarios</div>';
+        } else {
+          usuarios.forEach((usuario: any) => {
+            html += `
+              <div class="flex items-start justify-between p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-blue-300 transition">
+                <div class="flex-1">
+                  <h3 class="font-semibold text-slate-800">${usuario.first_name} ${usuario.last_name}</h3>
+                  <p class="text-xs text-slate-500 mt-1">ID: ${usuario.id}</p>
+                  <p class="text-sm text-slate-500">Usuario: ${usuario.username}</p>
+                  <p class="text-sm text-slate-500">Correo: ${usuario.email}</p>
+                </div>
+                <div class="flex gap-2 ml-4">
+                  <button onclick="window.eliminarUsuario(${usuario.id})"
+                    class="px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded transition">
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            `;
+          });
+        }
+        if (listEl) listEl.innerHTML = html;
+      } catch (error: any) {
+        const msg =
+          error.name === "AbortError"
+            ? "Timeout: la API tardó demasiado"
+            : "Error al cargar usuarios";
+        if (listEl)
+          listEl.innerHTML = `<div class="text-center py-8 text-red-500">${msg}</div>`;
+      }
+    };
+
+    window.eliminarUsuario = async function (id: number) {
+      if (!confirm("¿Estás seguro de que deseas eliminar este usuario?"))
+        return;
+      try {
+        await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        window.cargarUsuarios();
+      } catch (error) {
+        alert("Error al eliminar el usuario");
+      }
+    };
+
+    window.cargarDatosParaEditar = async function () {
+      const editIdInput = document.getElementById("editId") as HTMLInputElement;
+      const id = editIdInput.value?.trim();
+
+      if (!id) {
+        alert("Introduce un ID válido");
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/${id}`);
+        if (!response.ok) {
+          alert(
+            response.status === 404
+              ? `Usuario con ID ${id} no encontrado`
+              : "Error al buscar el usuario",
+          );
+          return;
+        }
+
+        const data = await response.json();
+        const usuario = data.user;
+        if (!usuario) {
+          alert("Usuario no encontrado");
+          return;
+        }
+
+        (document.getElementById("editFirst_name") as HTMLInputElement).value =
+          usuario.first_name || "";
+        (document.getElementById("editLast_name") as HTMLInputElement).value =
+          usuario.last_name || "";
+        (document.getElementById("editUsername") as HTMLInputElement).value =
+          usuario.username || "";
+        (document.getElementById("editEmail") as HTMLInputElement).value =
+          usuario.email || "";
+
+        editandoId = usuario.id;
+        const btnEditar = document.getElementById(
+          "btnEditar",
+        ) as HTMLButtonElement;
+        if (btnEditar) btnEditar.disabled = false;
+      } catch (error) {
+        alert("Error al conectar con la API");
+      }
+    };
+
+    window.cargarEnFormularioEditar = function (
+      id: number,
+      first_name: string,
+      last_name: string,
+      username: string,
+      email: string,
+    ) {
+      (document.getElementById("editId") as HTMLInputElement).value =
+        id.toString();
+      (document.getElementById("editFirst_name") as HTMLInputElement).value =
+        first_name;
+      (document.getElementById("editLast_name") as HTMLInputElement).value =
+        last_name;
+      (document.getElementById("editUsername") as HTMLInputElement).value =
+        username;
+      (document.getElementById("editEmail") as HTMLInputElement).value = email;
+      editandoId = id;
+      const btnEditar = document.getElementById(
+        "btnEditar",
+      ) as HTMLButtonElement;
+      if (btnEditar) btnEditar.disabled = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    window.buscarPorId = function () {
+      const searchInput = document.getElementById(
+        "searchId",
+      ) as HTMLInputElement;
+      const id = searchInput.value;
+      if (!id) {
+        alert("Ingresa un ID");
+        return;
+      }
+
+      fetch(`${API_URL}/${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.user) {
+            window.cargarEnFormularioEditar(
+              data.user.id,
+              data.user.first_name,
+              data.user.last_name,
+              data.user.username,
+              data.user.email,
+            );
+            searchInput.value = "";
+          } else {
+            alert("Usuario no encontrado");
+          }
+        })
+        .catch(() => alert("Error en la búsqueda"));
+    };
+
+    document.addEventListener("DOMContentLoaded", () =>
+      window.cargarUsuarios(),
+    );
+
+    const formCrear = document.getElementById("formUsuario") as HTMLFormElement;
+    formCrear?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const datos = {
+        first_name: (document.getElementById("first_name") as HTMLInputElement)
+          .value,
+        last_name: (document.getElementById("last_name") as HTMLInputElement)
+          .value,
+        username: (document.getElementById("username") as HTMLInputElement)
+          .value,
+        email: (document.getElementById("email") as HTMLInputElement).value,
+      };
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(datos),
+        });
+        formCrear.reset();
+        window.cargarUsuarios();
+      } catch (error) {
+        alert("Error al crear el usuario");
+      }
+    });
+
+    const formEditar = document.getElementById("formEditar") as HTMLFormElement;
+    formEditar?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!editandoId) {
+        alert("Carga un usuario primero");
+        return;
+      }
+      const datos = {
+        first_name: (
+          document.getElementById("editFirst_name") as HTMLInputElement
+        ).value,
+        last_name: (
+          document.getElementById("editLast_name") as HTMLInputElement
+        ).value,
+        username: (document.getElementById("editUsername") as HTMLInputElement)
+          .value,
+        email: (document.getElementById("editEmail") as HTMLInputElement).value,
+      };
+      try {
+        await fetch(`${API_URL}/${editandoId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(datos),
+        });
+        formEditar.reset();
+        editandoId = null;
+        const btnEditar = document.getElementById(
+          "btnEditar",
+        ) as HTMLButtonElement;
+        if (btnEditar) btnEditar.disabled = true;
+        window.cargarUsuarios();
+        alert("Usuario editado correctamente");
+      } catch (error) {
+        alert("Error al editar el usuario");
+      }
+    });
+  </script>
 </Layout>
