@@ -1,91 +1,17 @@
 const express = require('express');
 const app = express();
-const mysql = require('mysql2');
-const env = require('dotenv');
 const apiPort = process.env.API_PORT || 3000;
 
-env.config();
-
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-
-// Middleware para el anÃƒÂ¡lisis del cuerpo de solicitudes en formato JSON
+// Middleware for parsing JSON bodies
 app.use(express.json());
 
-// Ruta para obtener todos los usuarios
-app.get('/api/users', (req, res) => {
-  db.query('SELECT * FROM users', (err, results) => {
-    if (err) {
-      console.error('Error al obtener usuarios:', err);
-      res.status(500).json({ error: 'Error al obtener usuarios' });
-    } else {
-      res.json({ users: results });
-    }
-  });
-});
+// Import routers
+const usersRouter = require('./routes/users');
 
-// Ruta para obtener un usuario por su ID
-app.get('/api/users/:id', (req, res) => {
-  const userId = req.params.id;
-  db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
-    if (err) {
-      console.error('Error al obtener el usuario:', err);
-      res.status(500).json({ error: 'Error al obtener el usuario' });
-    } else {
-      if (results.length === 0) {
-        res.status(404).json({ message: 'Usuario no encontrado' });
-      } else {
-        res.json({ user: results[0] });
-      }
-    }
-  });
-});
+// Use routers
+app.use('/api/users', usersRouter);
 
-// Ruta para crear un nuevo usuario
-app.post('/api/users', (req, res) => {
-  const newUser = req.body;
-  db.query('INSERT INTO users (nombre, email) VALUES (?, ?)', [newUser.nombre, newUser.email], (err, results) => {
-    if (err) {
-      console.error('Error al crear el usuario:', err);
-      res.status(500).json({ error: 'Error al crear el usuario' });
-    } else {
-      res.json({ message: 'Usuario creado con ÃƒÂ©xito', user: newUser });
-    }
-  });
-});
-
-// Ruta para actualizar un usuario por su ID
-app.put('/api/users/:id', (req, res) => {
-  const userId = req.params.id;
-  const updatedUser = req.body;
-  db.query('UPDATE users SET nombre = ?, email = ? WHERE id = ?', [updatedUser.nombre, updatedUser.email, userId], (err, results) => {
-    if (err) {
-      console.error('Error al actualizar el usuario:', err);
-      res.status(500).json({ error: 'Error al actualizar el usuario' });
-    } else {
-      res.json({ message: 'Usuario actualizado con ÃƒÂ©xito', user: updatedUser });
-    }
-  });
-});
-
-// Ruta para eliminar un usuario por su ID
-app.delete('/api/users/:id', (req, res) => {
-  const userId = req.params.id;
-  db.query('DELETE FROM users WHERE id = ?', [userId], (err, results) => {
-    if (err) {
-      console.error('Error al eliminar el usuario:', err);
-      res.status(500).json({ error: 'Error al eliminar el usuario' });
-    } else {
-      res.json({ message: 'Usuario eliminado con ÃƒÂ©xito' });
-    }
-  });
-});
-
-// Inicia el servidor
+// Server listening
 app.listen(apiPort, () => {
-  console.log(`El servidor está escuchando y corriendo correctamente en el puerto ${apiPort}`);
+  console.log(`El servidor está escuchando en el puerto ${apiPort}`);
 });
